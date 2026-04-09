@@ -63,4 +63,20 @@ describe('App', () => {
     expect(screen.getByRole('heading', { name: /ship a live product experience in minutes/i })).toBeVisible()
     expect(screen.getByText(/acme/i)).toBeVisible()
   })
+
+  it('can capture feedback on a published URL', () => {
+    const state = { v: 1, templateId: 'landing' as const, name: 'Acme', accent: 'indigo' as const }
+    const raw = btoa(unescape(encodeURIComponent(JSON.stringify(state))))
+      .replaceAll('+', '-')
+      .replaceAll('/', '_')
+      .replaceAll('=', '')
+    window.history.replaceState({}, '', `/?p=${raw}`)
+
+    render(<App />)
+    fireEvent.change(screen.getByLabelText(/your feedback/i), { target: { value: 'Make the CTA clearer' } })
+    fireEvent.click(screen.getByRole('button', { name: /submit feedback/i }))
+
+    expect(screen.getByText(/1 received/i)).toBeVisible()
+    expect(screen.getByText(/make the cta clearer/i)).toBeVisible()
+  })
 })

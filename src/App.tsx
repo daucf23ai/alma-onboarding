@@ -1,8 +1,140 @@
 import { useMemo, useState } from 'react'
 import './App.css'
-import { decodePublishedState, encodePublishedState, type PublishedState } from './publish'
+import {
+  addFeedback,
+  decodePublishedState,
+  encodePublishedState,
+  getNextChange,
+  listFeedback,
+  setNextChange,
+  type FeedbackItem,
+  type PublishedState,
+} from './publish'
 
-function LandingTemplate({ state, onEdit }: { state: PublishedState; onEdit: () => void }) {
+function safeId() {
+  try {
+    return crypto.randomUUID()
+  } catch {
+    return `id_${Date.now()}_${Math.random().toString(16).slice(2)}`
+  }
+}
+
+function FeedbackPanel({ publishKey }: { publishKey: string }) {
+  const [items, setItems] = useState<FeedbackItem[]>(() => listFeedback(publishKey))
+  const [message, setMessage] = useState('')
+  const [name, setName] = useState('')
+  const [email, setEmail] = useState('')
+  const [nextChange, setNextChangeValue] = useState(() => getNextChange(publishKey) ?? items[0]?.message ?? '')
+  const [copied, setCopied] = useState(false)
+
+  function refresh() {
+    setItems(listFeedback(publishKey))
+    setNextChangeValue(getNextChange(publishKey) ?? listFeedback(publishKey)[0]?.message ?? '')
+  }
+
+  function submit() {
+    const trimmed = message.trim()
+    if (!trimmed) return
+    addFeedback(publishKey, {
+      id: safeId(),
+      createdAt: Date.now(),
+      message: trimmed,
+      name: name.trim() || undefined,
+      email: email.trim() || undefined,
+    })
+    setMessage('')
+    refresh()
+  }
+
+  async function copyNext() {
+    const trimmed = nextChange.trim()
+    setCopied(false)
+    if (!trimmed) return
+    setNextChange(publishKey, trimmed)
+    try {
+      await navigator.clipboard.writeText(trimmed)
+      setCopied(true)
+    } catch {
+      // noop: user can still select/copy manually
+    }
+  }
+
+  return (
+    <section className="card">
+      <h2>Feedback</h2>
+      <p className="muted">Leave one quick note. Stored locally in this browser for this published URL.</p>
+
+      <label className="field">
+        <span>Your feedback</span>
+        <textarea value={message} onChange={(e) => setMessage(e.target.value)} rows={3} />
+      </label>
+      <div className="row">
+        <label className="field field--inline">
+          <span>Name (optional)</span>
+          <input value={name} onChange={(e) => setName(e.target.value)} />
+        </label>
+        <label className="field field--inline">
+          <span>Email (optional)</span>
+          <input value={email} onChange={(e) => setEmail(e.target.value)} />
+        </label>
+      </div>
+      <div className="row">
+        <button type="button" onClick={() => submit()}>
+          Submit feedback
+        </button>
+        <button type="button" className="secondary" onClick={() => refresh()}>
+          Refresh
+        </button>
+        <span className="muted">{items.length ? `${items.length} received` : 'No feedback yet'}</span>
+      </div>
+
+      <hr className="divider" />
+
+      <h3>Choose next change</h3>
+      <p className="muted">Pick one next change and copy it out (a lightweight decision log).</p>
+      <label className="field">
+        <span>Next change</span>
+        <input value={nextChange} onChange={(e) => setNextChangeValue(e.target.value)} />
+      </label>
+      <div className="row">
+        <button type="button" className="secondary" onClick={() => setNextChangeValue(items[0]?.message ?? '')}>
+          Use latest feedback
+        </button>
+        <button type="button" onClick={() => copyNext()}>
+          Copy next change
+        </button>
+        {copied ? <span className="muted">Copied.</span> : null}
+      </div>
+
+      {items.length ? (
+        <>
+          <h3>Recent feedback</h3>
+          <ul className="list">
+            {items.slice(0, 5).map((it) => (
+              <li key={it.id}>
+                <strong>{it.message}</strong>
+                <div className="muted">
+                  {it.name ? `${it.name} · ` : ''}
+                  {new Date(it.createdAt).toLocaleString()}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </>
+      ) : null}
+    </section>
+  )
+}
+
+function LandingTemplate({
+  state,
+  publishKey,
+  onEdit,
+}: {
+  state: PublishedState
+  publishKey: string
+  onEdit: () => void
+}) {
   const productName = state.name
   return (
     <main className={`app app--${state.accent}`}>
@@ -94,6 +226,8 @@ function LandingTemplate({ state, onEdit }: { state: PublishedState; onEdit: () 
         </section>
       </section>
 
+      <FeedbackPanel publishKey={publishKey} />
+
       <footer className="footer muted">
         <span>Flow 1: Create → configure → publish</span>
       </footer>
@@ -108,7 +242,7 @@ function App() {
     if (!raw) return { kind: 'none' as const }
     const decoded = decodePublishedState(raw)
     if (!decoded.ok) return { kind: 'error' as const, message: decoded.error }
-    return { kind: 'published' as const, state: decoded.value }
+    return { kind: 'published' as const, p: raw, state: decoded.value }
   })
 
   const [mode, setMode] = useState<'wizard' | 'published'>(() =>
@@ -180,7 +314,7 @@ function App() {
   if (mode === 'published' && initialFromUrl.kind === 'published') {
     const s = initialFromUrl.state
     if (s.templateId === 'landing') {
-      return <LandingTemplate state={s} onEdit={() => setDraftFromPublished(s)} />
+      return <LandingTemplate state={s} publishKey={initialFromUrl.p} onEdit={() => setDraftFromPublished(s)} />
     }
     return (
       <main className={`app app--${s.accent}`}>
@@ -201,6 +335,8 @@ function App() {
             Edit & republish
           </button>
         </section>
+
+        <FeedbackPanel publishKey={initialFromUrl.p} />
 
         <footer className="footer muted">
           <span>Flow 1: Create → configure → publish</span>

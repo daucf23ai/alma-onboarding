@@ -57,6 +57,19 @@ Happy path (no backend; works on GitHub Pages):
 - **Republish**: adjust Name/Accent and click **Publish** to generate a new shareable URL (copied to clipboard when possible)
 - **Verify update is live**: open the new URL and confirm the published view reflects your change
 
+## MVP Flow 3: Share → capture lightweight feedback → choose next change
+
+Happy path (no backend; works on GitHub Pages):
+
+- **Share**: send someone a published URL (`?p=...`)
+- **Capture feedback**: on the published page, use **Feedback → Submit feedback**
+- **Review feedback**: revisit the same published URL in your browser to see the feedback count + recent items
+- **Choose next change**: set **Choose next change → Next change** (or click **Use latest feedback**) and click **Copy next change**
+
+Notes:
+
+- Feedback is stored in `localStorage` for that browser + published URL (intentionally minimal; no server-side persistence).
+
 ## Baseline stack decision
 
 - **Runtime / tooling**: Node.js + npm

@@ -123,13 +123,31 @@
 }
 
 .field input,
-.field select {
+.field select,
+.field textarea {
   font: inherit;
   padding: 10px 12px;
   border-radius: 10px;
   border: 1px solid var(--border);
   background: color-mix(in srgb, var(--bg), white 4%);
   color: var(--text);
+}
+
+.field textarea {
+  resize: vertical;
+  min-height: 86px;
+}
+
+.field--inline {
+  flex: 1;
+  min-width: 220px;
+  margin-top: 0;
+}
+
+.divider {
+  border: 0;
+  border-top: 1px solid var(--border);
+  margin: 14px 0;
 }
 
 .row {
